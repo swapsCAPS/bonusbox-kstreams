@@ -5,6 +5,10 @@
   "doc": "",
   "fields": [
     {
+      "name": "timestamp",
+      "type": "long"
+    },
+    {
       "name": "bonuskaartId",
       "type": "string"
     },

@@ -1,8 +1,13 @@
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerializer
 import nl.swapscaps.bonusbox.CheckoutEventV1
 import nl.swapscaps.bonusbox.CheckoutEventV1Article
+import org.apache.kafka.clients.admin.Admin
+import org.apache.kafka.clients.admin.AdminClientConfig
+import org.apache.kafka.clients.admin.KafkaAdminClient
+import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.StringSerializer
 import java.util.Properties
 import java.time.LocalDate
@@ -23,9 +28,12 @@ data class Article(
 }
 
 data class CheckoutProducerConfig(
+  val topic: String = "checkout-events",
   val years: Int = 10,
   val maxEventsPerWeek: Int = 3,
-  val numBonuskaartIds: Long  = 1e2.toLong(),
+  val startBonuskaartId: Long  = 0,
+  val numBonuskaartIds: Long  = 1e4.toLong(),
+  val numPartitions: Int = 100,
   val articles: List<Article> = listOf(
     Article("Apple", 1.0f),
     Article("Banana", 1.0f),
@@ -38,20 +46,28 @@ data class CheckoutProducerConfig(
     Article("Tea", 1.0f),
   ),
 
+  val adminProps: Properties = Properties().let {
+    it[AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG] = "localhost:9092"
+    it
+  },
+
   val producerProps: Properties = Properties().let {
     it[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = "localhost:9092"
     it[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java
     it[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = SpecificAvroSerializer::class.java
-    it["schema.registry.url"] = "http://localhost:8085"
+    it["schema.registry.url"] = "http://localhost:8081"
     it
   },
 )
 
 class CheckoutProducer(
   val config: CheckoutProducerConfig = CheckoutProducerConfig(),
-  val producer: KafkaProducer<String, String>? = KafkaProducer(config?.producerProps)
+  val producer: KafkaProducer<String, CheckoutEventV1> = KafkaProducer(config.producerProps),
+  val admin: Admin = Admin.create(config.adminProps),
 ) {
   fun start() {
+    admin.createTopics(listOf(NewTopic(config.topic, config.numPartitions, -1))).all().get()
+
     val weeks = Period.ofWeeks(config.years * 52)
 
     val start = LocalDate.now() - weeks
@@ -60,12 +76,9 @@ class CheckoutProducer(
 
     var currentWeek = start
     while (currentWeek < LocalDate.now()) {
-      val from: Long = config.numBonuskaartIds
-      val to: Long  = (config.numBonuskaartIds * 2)
-
       val startOfWeek = currentWeek.atStartOfDay(ZoneOffset.UTC)
 
-      for (bonuskaartId in from..to) {
+      for (bonuskaartId in config.startBonuskaartId..config.startBonuskaartId + config.numBonuskaartIds) {
         val numEvents = 1 + (Math.random() * (maxEventsPerWeek)).toInt()
 
         for (i in 0..numEvents) {
@@ -75,12 +88,16 @@ class CheckoutProducer(
 
           println("Sending event $i for bonuskaartId $bonuskaartId at $timestamp")
 
-          val articles = config.articles.shuffled().take((Math.random() * config.articles.size).toInt())
+          val articles = config.articles.shuffled().take((Math.random() * 4).toInt())
 
           val event = CheckoutEventV1.newBuilder()
+            .setTimestamp(timestamp)
             .setBonuskaartId(bonuskaartId.toString())
             .setArticles(articles.map { it.toAvro() })
             .build()
+
+
+          producer.send(ProducerRecord(config.topic, bonuskaartId.toString(), event)).get()
         }
       }
 
