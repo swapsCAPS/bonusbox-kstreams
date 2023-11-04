@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
@@ -8,11 +7,6 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/apps" />
-            <option value="$PROJECT_DIR$/apps/producer" />
-            <option value="$PROJECT_DIR$/apps/stream-processor" />
-            <option value="$PROJECT_DIR$/schemas" />
-            <option value="$PROJECT_DIR$/schemas/avro-schemas" />
           </set>
         </option>
       </GradleProjectSettings>
