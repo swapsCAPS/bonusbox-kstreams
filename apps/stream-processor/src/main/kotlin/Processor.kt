@@ -11,9 +11,11 @@ import org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded
 import org.apache.kafka.streams.kstream.Suppressed.untilWindowCloses
 import org.apache.kafka.streams.kstream.TimeWindows
 import org.apache.kafka.streams.processor.TimestampExtractor
+import java.lang.Exception
 import java.time.Duration
 import java.util.Calendar
 import java.util.Properties
+import java.util.concurrent.atomic.AtomicBoolean
 
 
 class CheckoutEventTimestampExtractor : TimestampExtractor {
@@ -31,6 +33,7 @@ data class ProcessorConfig(
 class Processor(
   val config: ProcessorConfig = ProcessorConfig(),
   val kafkaStreamsProps: Properties = Properties().let {
+    it[StreamsConfig.APPLICATION_ID_CONFIG] = "bonusbox-kstreams"
     it[StreamsConfig.BOOTSTRAP_SERVERS_CONFIG] = "localhost:9092"
     it[StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG] = Serdes.String().javaClass
     it[StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG] = SpecificAvroSerde::class.java
@@ -39,10 +42,33 @@ class Processor(
     it
   }
 ) {
+  val isStarted = AtomicBoolean(false)
+
   fun start() {
     val streams = KafkaStreams(getTopology(), kafkaStreamsProps)
 
+    val isStreamsStarted = AtomicBoolean(false)
+    streams!!.setStateListener { newState, _ ->
+      if (newState == KafkaStreams.State.RUNNING) {
+        isStreamsStarted.set(true)
+      }
+    }
+
     streams.start()
+
+    val ival = 1000L
+    var maxWait = 120000L
+    while (!isStreamsStarted.get()) {
+      Thread.sleep(ival)
+      maxWait -= ival
+      if (maxWait <= 0) {
+        throw Exception("Streams failed to start!")
+      }
+      println("Not started yet...")
+    }
+
+    isStarted.set(true)
+
   }
 
   fun getTopology(): Topology {
