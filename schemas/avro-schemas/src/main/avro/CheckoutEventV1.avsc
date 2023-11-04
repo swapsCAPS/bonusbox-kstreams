@@ -1,0 +1,19 @@
+{
+  "name": "CheckoutEventV1",
+  "type": "record",
+  "namespace": "nl.swapscaps.bonusbox",
+  "doc": "",
+  "fields": [
+    {
+      "name": "bonuskaartId",
+      "type": "string"
+    },
+    {
+      "name": "articles",
+      "type": {
+        "type": "array",
+        "items": "CheckoutEventV1Article"
+      }
+    }
+  ]
+}

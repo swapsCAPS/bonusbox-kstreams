@@ -1,0 +1,16 @@
+{
+  "name": "CheckoutEventV1Article",
+  "type": "record",
+  "namespace": "nl.swapscaps.bonusbox",
+  "doc": "",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "price",
+      "type": "float"
+    }
+  ]
+}
