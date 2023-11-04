@@ -2,6 +2,7 @@ pluginManagement {
     repositories {
         mavenCentral()
         gradlePluginPortal()
+        maven(url = "https://packages.confluent.io/maven/")
     }
 }
 

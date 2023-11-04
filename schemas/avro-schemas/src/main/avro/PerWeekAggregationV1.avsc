@@ -1,0 +1,27 @@
+{
+  "name": "PerWeekAggregationV1",
+  "type": "record",
+  "namespace": "nl.swapscaps.bonusbox",
+  "doc": "",
+  "fields": [
+    {
+      "name": "year",
+      "type": "int"
+    },
+    {
+      "name": "weekNr",
+      "type": "int"
+    },
+    {
+      "name": "bonuskaartId",
+      "type": "string"
+    },
+    {
+      "name": "articleCount",
+      "type": {
+        "type": "map",
+        "values": "long"
+      }
+    }
+  ]
+}
