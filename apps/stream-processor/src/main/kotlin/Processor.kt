@@ -52,7 +52,12 @@ class Processor(
     val streamsBuilder = StreamsBuilder()
 
     streamsBuilder
-      .stream(config.inputTopic, Consumed.with(Serdes.String(), checkoutEventV1Serde))
+      .stream(
+        config.inputTopic,
+        Consumed
+          .with(Serdes.String(), checkoutEventV1Serde)
+          .withTimestampExtractor(CheckoutEventTimestampExtractor())
+      )
       .groupByKey()
       .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofDays(7), Duration.ofDays(1)))
       .aggregate(
