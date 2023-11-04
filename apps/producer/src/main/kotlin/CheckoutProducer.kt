@@ -1,9 +1,10 @@
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerializer
+import nl.swapscaps.bonusbox.CheckoutEventV1
+import nl.swapscaps.bonusbox.CheckoutEventV1Article
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringSerializer
 import java.util.Properties
-import java.time.Duration
 import java.time.LocalDate
 import java.time.Period
 import java.time.ZoneOffset
@@ -11,8 +12,15 @@ import java.time.temporal.ChronoUnit
 
 data class Article(
   val name: String,
-  val price: Float
-)
+  val price: Float,
+) {
+  fun toAvro(): CheckoutEventV1Article {
+    return CheckoutEventV1Article.newBuilder()
+      .setName(this.name)
+      .setPrice(this.price)
+      .build()
+  }
+}
 
 data class CheckoutProducerConfig(
   val years: Int = 10,
@@ -68,9 +76,12 @@ class CheckoutProducer(
           println("Sending event $i for bonuskaartId $bonuskaartId at $timestamp")
 
           val articles = config.articles.shuffled().take((Math.random() * config.articles.size).toInt())
+
+          val event = CheckoutEventV1.newBuilder()
+            .setBonuskaartId(bonuskaartId.toString())
+            .setArticles(articles.map { it.toAvro() })
+            .build()
         }
-
-
       }
 
       currentWeek += Period.ofWeeks(1)

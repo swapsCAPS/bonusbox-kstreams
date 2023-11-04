@@ -11,4 +11,4 @@ plugins {
 
 rootProject.name = "bonusbox"
 include("apps:producer")
-include("schemas:avro")
+include("schemas:avro-schemas")
