@@ -3,13 +3,16 @@ import nl.swapscaps.bonusbox.CheckoutEventV1
 import nl.swapscaps.bonusbox.PerWeekAggregationV1
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.Serdes
-import org.apache.kafka.streams.KafkaStreams
-import org.apache.kafka.streams.StreamsBuilder
-import org.apache.kafka.streams.StreamsConfig
-import org.apache.kafka.streams.Topology
+import org.apache.kafka.streams.*
 import org.apache.kafka.streams.kstream.Consumed
+import org.apache.kafka.streams.kstream.Materialized
 import org.apache.kafka.streams.kstream.Produced
+import org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded
+import org.apache.kafka.streams.kstream.Suppressed.untilWindowCloses
+import org.apache.kafka.streams.kstream.TimeWindows
 import org.apache.kafka.streams.processor.TimestampExtractor
+import java.time.Duration
+import java.util.Calendar
 import java.util.Properties
 
 
@@ -46,12 +49,47 @@ class Processor(
     val checkoutEventV1Serde = SpecificAvroSerde<CheckoutEventV1>()
     val perWeekAggregationV1Serde = SpecificAvroSerde<PerWeekAggregationV1>()
 
-    val streams =
-      StreamsBuilder()
-        .stream(config.inputTopic, Consumed.with(Serdes.String(), checkoutEventV1Serde))
-        // TODO windowing
-        .to(config.outputTopic, Produced.with(Serdes.String(), perWeekAggregationV1Serde))
+    val streamsBuilder = StreamsBuilder()
 
-    streams.build()
+    streamsBuilder
+      .stream(config.inputTopic, Consumed.with(Serdes.String(), checkoutEventV1Serde))
+      .groupByKey()
+      .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofDays(7), Duration.ofDays(1)))
+      .aggregate(
+        {
+          PerWeekAggregationV1
+            .newBuilder()
+            .build()
+        },
+        { key: String, value: CheckoutEventV1, aggregate: PerWeekAggregationV1 ->
+          val calendar = Calendar.getInstance()
+          calendar.setTimeInMillis(value.timestamp)
+
+          val articleCount = aggregate.articleCount.toMutableMap()
+
+          for (article in value.articles) {
+            val count = articleCount.getOrDefault(article.name, 0)
+            articleCount[article.name] = count + 1
+          }
+
+          PerWeekAggregationV1.newBuilder()
+            .setBonuskaartId(value.bonuskaartId)
+            .setYear(calendar.get(Calendar.YEAR))
+            .setWeekNr(calendar.get(Calendar.WEEK_OF_YEAR))
+            .setArticleCount(articleCount)
+            .build()
+
+        },
+        Materialized.with(Serdes.String(), perWeekAggregationV1Serde)
+      )
+      .suppress(untilWindowCloses(unbounded()))
+      .toStream()
+      .map { k, v -> KeyValue(v.bonuskaartId.toString(), v) }
+      .peek { key, value ->
+        println("key: $key, value: $value")
+      }
+      .to(config.outputTopic, Produced.with(Serdes.String(), perWeekAggregationV1Serde))
+
+    return streamsBuilder.build()
   }
 }
