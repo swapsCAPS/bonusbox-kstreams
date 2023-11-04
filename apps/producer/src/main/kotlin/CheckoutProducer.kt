@@ -66,7 +66,11 @@ class CheckoutProducer(
   val admin: Admin = Admin.create(config.adminProps),
 ) {
   fun start() {
-    admin.createTopics(listOf(NewTopic(config.topic, config.numPartitions, -1))).all().get()
+    val topics = admin.listTopics().names().get()
+
+    if (!topics.contains(config.topic)) {
+      admin.createTopics(listOf(NewTopic(config.topic, config.numPartitions, -1))).all().get()
+    }
 
     val weeks = Period.ofWeeks(config.years * 52)
 
