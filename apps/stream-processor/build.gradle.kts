@@ -12,6 +12,7 @@ repositories {
 }
 
 dependencies {
+  implementation("ch.qos.reload4j:reload4j:1.2.25")
   implementation("io.confluent:kafka-streams-avro-serde:7.4.1")
   implementation("org.apache.kafka:kafka-streams:3.6.0")
   implementation("org.apache.avro:avro:1.11.0")
